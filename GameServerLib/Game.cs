@@ -109,8 +109,6 @@ namespace LeagueSandbox.GameServer
 
             Map.Init();
 
-<<<<<<< HEAD
-=======
             _logger.Info("Add players");
             foreach (var p in Config.Players)
             {
@@ -125,7 +123,6 @@ namespace LeagueSandbox.GameServer
             // ((PlayerManager)PlayerManager)._players[1].Item2.IsStartedClient = true;
             // new HandleStartGame(this).HandlePacket(2, new StartGameRequest());
 
->>>>>>> ea18961f... GameServer modified to receive actions and send observations to/from connected redis server
             _pauseTimer = new Timer
             {
                 AutoReset = true,
