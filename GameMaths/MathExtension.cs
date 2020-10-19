@@ -59,6 +59,10 @@ namespace GameMaths
                 (float)((vector2.X * cos) - (vector2.Y * sin)),
                 (float)((vector2.Y * cos) + (vector2.X * sin)));
         }
+        public static float GetAngleBetween(Vector2 p1, Vector2 p2) {
+            var angleDeg = Math.Atan2(p2.Y - p1.Y, p2.X - p1.X) * 180 / Math.PI;
+            return (float) angleDeg;
+        }
         public static bool IsZero(this float a)
         {
             return Math.Abs(a) < 1e-6f;

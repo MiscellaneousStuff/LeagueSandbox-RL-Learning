@@ -1,6 +1,6 @@
 {
-    "dependencies": 
-    [
-        "LeagueSandbox-Default"
-    ]
+  "dependencies": [
+    "LeagueSandbox-Default",
+    "LeagueSandbox-AI"
+  ]
 }

@@ -3,6 +3,7 @@ using LeagueSandbox.GameServer.GameObjects.AttackableUnits.AI;
 using LeagueSandbox.GameServer.GameObjects.Missiles;
 using GameServerCore.Domain;
 using LeagueSandbox.GameServer.Scripting.CSharp;
+using System;
 
 namespace Spells
 {
@@ -10,7 +11,6 @@ namespace Spells
     {
         public void OnActivate(IObjAiBase owner)
         {
-
         }
 
         public void OnDeactivate(IObjAiBase owner)
@@ -27,6 +27,7 @@ namespace Spells
 
         public void ApplyEffects(IObjAiBase owner, IAttackableUnit target, ISpell spell, IProjectile projectile)
         {
+
         }
 
         public void OnUpdate(double diff)
