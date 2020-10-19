@@ -136,8 +136,12 @@ namespace LeagueSandbox.GameServer.Maps
 
         private static readonly Dictionary<TeamId, ITarget> SpawnsByTeam = new Dictionary<TeamId, ITarget>
         {
+            {TeamId.TEAM_BLUE, new Target(7000.0f-750.0f+100.0f, 7000.0f-750.0f+100.0f)},
+            {TeamId.TEAM_PURPLE, new Target(7000.0f+750.0f-100.0f, 7000.0f+750.0f-100.0f)}
+            /*
             {TeamId.TEAM_BLUE, new Target(25.90f, 280)},
             {TeamId.TEAM_PURPLE, new Target(13948, 14202)}
+            */
         };
 
         private static readonly Dictionary<TurretType, int[]> TurretItems = new Dictionary<TurretType, int[]>
@@ -152,8 +156,11 @@ namespace LeagueSandbox.GameServer.Maps
         private Game _game;
         private int _cannonMinionCount;
         private int _minionNumber;
-        private readonly long _firstSpawnTime = 90 * 1000;
-        private long _nextSpawnTime = 90 * 1000;
+        
+        // NOTE: First spawn time
+        private readonly long _firstSpawnTime = 1 * 1000;
+
+        private long _nextSpawnTime = 1 * 1000;
         private readonly long _spawnInterval = 30 * 1000;
         private readonly Dictionary<TeamId, Fountain> _fountains;
         private readonly Dictionary<TeamId, SurrenderHandler> _surrenders;

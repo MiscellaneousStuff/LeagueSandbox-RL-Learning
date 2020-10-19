@@ -2,6 +2,7 @@
 using GameServerCore.Domain.GameObjects;
 using GameServerCore.Packets.Handlers;
 using GameServerCore.Packets.PacketDefinitions.Requests;
+using System;
 
 namespace LeagueSandbox.GameServer.Packets.PacketHandlers
 {
@@ -20,6 +21,8 @@ namespace LeagueSandbox.GameServer.Packets.PacketHandlers
 
         public override bool HandlePacket(int userId, CastSpellRequest req)
         {
+            Console.WriteLine("{0} is casting {1} {2} {3} {4} {5} {6}", userId, req.SpellSlot, req.TargetNetId, req.X, req.Y, req.X2, req.Y2);
+
             var targetObj = _game.ObjectManager.GetObjectById(req.TargetNetId);
             var targetUnit = targetObj as IAttackableUnit;
             var owner = _playerManager.GetPeerInfo((ulong)userId).Champion;

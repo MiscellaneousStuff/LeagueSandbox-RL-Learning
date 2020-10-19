@@ -5,6 +5,7 @@ using GameServerCore.Maps;
 using GameServerCore.Packets.Enums;
 using GameServerCore.Packets.Handlers;
 using GameServerCore.Packets.PacketDefinitions.Requests;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -46,6 +47,7 @@ namespace LeagueSandbox.GameServer.Packets.PacketHandlers
                     vMoves[0] = new Vector2(champion.X,champion.Y);
                     champion.UpdateMoveOrder(MoveOrder.MOVE_ORDER_ATTACKMOVE);
                     champion.SetWaypoints(vMoves);
+                    Console.WriteLine("ATTACK MOVE POINTS: {0}", vMoves);
                     break;
                 case MoveType.MOVE:
                     vMoves[0] = new Vector2(champion.X, champion.Y);

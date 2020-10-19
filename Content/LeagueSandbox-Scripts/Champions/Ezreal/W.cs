@@ -48,7 +48,7 @@ namespace Spells
             {
                 AddBuff("EzrealWBuff", buffTime, 1, spell, champion, owner);
             }
-            else
+            else if (!champion.Team.Equals(owner.Team))
             {
                 var damage = 25 + (45 * spell.Level) + (ownerAbilityPowerTotal * 0.8f);
 

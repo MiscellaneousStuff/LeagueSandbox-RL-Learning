@@ -14,7 +14,8 @@ namespace LeagueSandbox.GameServer.Players
         private NetworkIdManager _networkIdManager;
         private Game _game;
 
-        private List<Tuple<uint, ClientInfo>> _players = new List<Tuple<uint, ClientInfo>>();
+        // private List<Tuple<uint, ClientInfo>> _players = new List<Tuple<uint, ClientInfo>>();
+        public List<Tuple<uint, ClientInfo>> _players = new List<Tuple<uint, ClientInfo>>();
         private ulong _currentId = 1;
         private Dictionary<TeamId, uint> _userIdsPerTeam = new Dictionary<TeamId, uint>
         {
