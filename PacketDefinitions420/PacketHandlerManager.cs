@@ -32,7 +32,8 @@ namespace PacketDefinitions420
         private readonly NetworkHandler<ICoreRequest> _netReq;
         private readonly NetworkHandler<ICoreResponse> _netResp;
 
-        private int _playersConnected = 0;
+        // Original: private int _playersConnected = 0
+        public int _playersConnected = 1;
 
         public PacketHandlerManager(BlowFish blowfish, Host server, IGame game, NetworkHandler<ICoreRequest> netReq, NetworkHandler<ICoreResponse> netResp)
         {

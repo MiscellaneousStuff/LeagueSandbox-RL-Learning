@@ -3,6 +3,7 @@ using GameServerCore.Packets.Handlers;
 using GameServerCore.Packets.PacketDefinitions.Requests;
 using LeagueSandbox.GameServer.Logging;
 using log4net;
+using System;
 
 namespace LeagueSandbox.GameServer.Packets.PacketHandlers
 {

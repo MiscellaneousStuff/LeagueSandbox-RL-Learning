@@ -114,13 +114,6 @@ namespace LeagueSandbox.GameServer
                 ((PlayerManager)PlayerManager).AddPlayer(p);
             }
 
-            // Fake add second client
-            /*
-             * KEYS = ["player1", "player2", "playern", etc]
-             */
-            // ((PlayerManager)PlayerManager)._players[1].Item2.IsStartedClient = true;
-            // new HandleStartGame(this).HandlePacket(2, new StartGameRequest());
-
             _pauseTimer = new Timer
             {
                 AutoReset = true,
@@ -137,6 +130,13 @@ namespace LeagueSandbox.GameServer
             InitializePacketHandlers();
 
             _logger.Info("Game is ready.");
+
+            // Fake add second client
+            ((PlayerManager)PlayerManager)._players[1].Item2.IsStartedClient = true;
+            ((PlayerManager)PlayerManager)._players[1].Item2.IsMatchingVersion = true;
+            new HandleStartGame(this).HandlePacket(2, new StartGameRequest());
+            new HandleSync(this).HandlePacket(2, new SynchVersionRequest(0, 1, "4.20.0.315"));
+            new HandleSpawn(this).HandlePacket(2, new SpawnRequest());
         }
         public void InitializePacketHandlers()
         {
@@ -585,16 +585,33 @@ namespace LeagueSandbox.GameServer
                 champ_observation.distance_to_me = MathExtension.Distance(champ.GetPosition(), champion.GetPosition());
 
                 // Abilities (First 4 are Q,W,E,R and last 2 are summoners)
-                champ_observation.q_cooldown = champ.GetSpell(0).CurrentCooldown;
-                champ_observation.q_level = champ.GetSpell(0).Level;
-                champ_observation.w_cooldown = champ.GetSpell(1).CurrentCooldown;
-                champ_observation.w_level = champ.GetSpell(1).Level;
-                champ_observation.e_cooldown = champ.GetSpell(2).CurrentCooldown;
-                champ_observation.e_level = champ.GetSpell(2).Level;
-                champ_observation.r_cooldown = champ.GetSpell(3).CurrentCooldown;
-                champ_observation.r_level = champ.GetSpell(3).Level;
-                champ_observation.sum_1_cooldown = champ.GetSpell(4).CurrentCooldown;
-                champ_observation.sum_2_cooldown = champ.GetSpell(5).CurrentCooldown;
+                try
+                {
+                    champ_observation.q_cooldown = champ.GetSpell(0).CurrentCooldown;
+                    champ_observation.q_level = champ.GetSpell(0).Level;
+                    champ_observation.w_cooldown = champ.GetSpell(1).CurrentCooldown;
+                    champ_observation.w_level = champ.GetSpell(1).Level;
+                    champ_observation.e_cooldown = champ.GetSpell(2).CurrentCooldown;
+                    champ_observation.e_level = champ.GetSpell(2).Level;
+                    champ_observation.r_cooldown = champ.GetSpell(3).CurrentCooldown;
+                    champ_observation.r_level = champ.GetSpell(3).Level;
+                    champ_observation.sum_1_cooldown = champ.GetSpell(4).CurrentCooldown;
+                    champ_observation.sum_2_cooldown = champ.GetSpell(5).CurrentCooldown;
+                }
+
+                // Note: Only necessary for testing, if a champion is swapped out, GetSpell will throw an error while there are no spells to get
+                catch {
+                    champ_observation.q_cooldown = 0;
+                    champ_observation.q_level = 0;
+                    champ_observation.w_cooldown = 0;
+                    champ_observation.w_level = 0;
+                    champ_observation.e_cooldown = 0;
+                    champ_observation.e_level = 0;
+                    champ_observation.r_cooldown = 0;
+                    champ_observation.r_level = 0;
+                    champ_observation.sum_1_cooldown = 0;
+                    champ_observation.sum_2_cooldown = 0;
+                }
 
                 // General
                 champ_observation.death_count = champ.ChampStats.Deaths;
@@ -621,7 +638,7 @@ namespace LeagueSandbox.GameServer
             db = redis.GetDatabase();
 
             // Setup AI here
-            for (uint i=1; i<2+1; i++)
+            for (uint i=1; i<1+1; i++)
             {
                 UserBuy(i, 1055); // NOTE: Doesn't work properly
                 for (byte j=0; j<1; j++)
@@ -709,6 +726,12 @@ namespace LeagueSandbox.GameServer
             public byte spell_slot;
         }
 
+        struct Change_Champion_Command
+        {
+            public uint player_id;
+            public string champion_name;
+        }
+
         public void AIAct(String action_type, String action_data)
         {
             switch (action_type)
@@ -756,6 +779,12 @@ namespace LeagueSandbox.GameServer
                     {
                         being_observed = true;
                     }
+                    else if (current_command == "change_champion")
+                    {
+                        String command_data = db.ListLeftPop("command");
+                        Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
+                        
+                    }
                 }
 
                 // Observations for AI agent when agent connects
@@ -782,7 +811,8 @@ namespace LeagueSandbox.GameServer
             counter = curCounter;
         }
 
-        // cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 2" & "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
+        // 2 clients: cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 2" & "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
+        // 1 client:  cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
 
         /*
          * =====================================================================
