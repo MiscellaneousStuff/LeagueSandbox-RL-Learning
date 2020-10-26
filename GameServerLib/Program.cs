@@ -26,7 +26,7 @@ namespace LeagueSandbox.GameServer
             _logger = LoggerProvider.GetLogger();
             game = new Game(human_count, agent_count);
 
-            _server = new Server(game, serverPort, configJson, blowfishKey);
+            _server = new Server(game, serverPort, configJson);
 
 #if !DEBUG
             try

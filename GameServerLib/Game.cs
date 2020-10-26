@@ -60,6 +60,7 @@ namespace LeagueSandbox.GameServer
         public NetworkHandler<ICoreResponse> ResponseHandler { get; }
         public IPacketNotifier PacketNotifier { get; private set; }
         public IObjectManager ObjectManager { get; private set; }
+        public IProtectionManager ProtectionManager { get; private set; }
         public IMap Map { get; private set; }
 
         public Config Config { get; protected set; }
@@ -105,6 +106,7 @@ namespace LeagueSandbox.GameServer
             ChatCommandManager.LoadCommands();
 
             ObjectManager = new ObjectManager(this);
+            ProtectionManager = new ProtectionManager(this);
             Map = new Map(this);
             ApiFunctionManager.SetGame(this);
             ApiEventManager.SetGame(this);
@@ -118,6 +120,13 @@ namespace LeagueSandbox.GameServer
                 _logger.Info("Player " + p.Value.Name + " Added: " + p.Value.Champion);
                 ((PlayerManager)PlayerManager).AddPlayer(p);
             }
+
+            // Fake add second client
+            /*
+             * KEYS = ["player1", "player2", "playern", etc]
+             */
+            // ((PlayerManager)PlayerManager)._players[1].Item2.IsStartedClient = true;
+            // new HandleStartGame(this).HandlePacket(2, new StartGameRequest());
 
             _pauseTimer = new Timer
             {
@@ -133,6 +142,13 @@ namespace LeagueSandbox.GameServer
             // TODO: switch the notifier with ResponseHandler
             PacketNotifier = new PacketNotifier(_packetServer.PacketHandlerManager, Map.NavigationGrid);
             InitializePacketHandlers();
+
+            _logger.Info("Add players");
+            foreach (var p in Config.Players)
+            {
+                _logger.Info("Player " + p.Value.Name + " Added: " + p.Value.Champion);
+                ((PlayerManager)PlayerManager).AddPlayer(p);
+            }
 
             _logger.Info("Game is ready.");
 
@@ -872,6 +888,7 @@ namespace LeagueSandbox.GameServer
             GameTime += diff;
             AIUpdate(diff); // NOTE: Add AI handler
             ObjectManager.Update(diff);
+            ProtectionManager.Update(diff);
             Map.Update(diff);
             _gameScriptTimers.ForEach(gsTimer => gsTimer.Update(diff));
             _gameScriptTimers.RemoveAll(gsTimer => gsTimer.IsDead());
@@ -927,19 +944,6 @@ namespace LeagueSandbox.GameServer
             _pauseTimer.Enabled = false;
         }
 
-        public bool HandleDisconnect(int userId)
-        {
-            var peerinfo = PlayerManager.GetPeerInfo((ulong)userId);
-            if (peerinfo != null)
-            {
-                if (!peerinfo.IsDisconnected)
-                {
-                    PacketNotifier.NotifyUnitAnnounceEvent(UnitAnnounces.SUMMONER_DISCONNECTED, peerinfo.Champion);
-                }
-                peerinfo.IsDisconnected = true;
-            }
-            return true;
-        }
         private static List<T> GetInstances<T>(IGame g)
         {
             return Assembly.GetCallingAssembly()

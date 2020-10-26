@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using CommandLine;
 using GameServerConsole.Properties;
@@ -25,7 +26,6 @@ namespace LeagueSandbox.GameServerConsole
                 parsedArgs.GameInfoJson,
                 Encoding.UTF8.GetString(Resources.GameInfo));
 
-            var gameServerBlowFish = "17BLOhi6KZsTtldTsizvHg==";
             var gameServerLauncher = new GameServerLauncher(
                 parsedArgs.ServerPort,
                 parsedArgs.GameInfoJson,
@@ -38,6 +38,7 @@ namespace LeagueSandbox.GameServerConsole
                 parsedArgs.GameServerSettingsJsonPath,
                 parsedArgs.GameServerSettingsJson,
                 Encoding.UTF8.GetString(Resources.GameServerSettings)));
+
             if (configGameServerSettings.AutoStartClient)
             {
                 var leaguePath = configGameServerSettings.ClientLocation;
@@ -47,10 +48,11 @@ namespace LeagueSandbox.GameServerConsole
                 }
                 if (File.Exists(leaguePath))
                 {
+                    // TODO: launch a client for each player in config
                     var startInfo = new ProcessStartInfo(leaguePath)
                     {
                         Arguments = String.Format("\"8394\" \"LoLLauncher.exe\" \"\" \"127.0.0.1 {0} {1} 1\"",
-                            parsedArgs.ServerPort, gameServerBlowFish),
+                            parsedArgs.ServerPort, gameServerLauncher.game.Config.Players.First().Value.BlowfishKey),
                         WorkingDirectory = Path.GetDirectoryName(leaguePath)
                     };
 

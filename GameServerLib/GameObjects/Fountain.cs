@@ -55,6 +55,7 @@ namespace LeagueSandbox.GameServer.GameObjects
                 var mp = champion.Stats.CurrentMana;
                 var maxMp = champion.Stats.ManaPoints.Total;
                 champion.Stats.CurrentMana = Math.Min(mp + maxMp * PERCENT_MAX_MANA_HEAL, maxMp);
+                _game.ProtectionManager.HandleFountainProtection(champion);
             }
         }
     }

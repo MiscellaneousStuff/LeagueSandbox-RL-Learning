@@ -134,7 +134,7 @@ namespace LeagueSandbox.GameServer
                 var ai = u as IObjAiBase;
                 if (ai != null)
                 {
-                    var tempBuffs = ai.GetBuffs();
+                    var tempBuffs = new List<GameServerCore.Domain.IBuff>(ai.GetBuffs());
                     for (int i = tempBuffs.Count - 1; i >= 0; i--)
                     {
                         if (tempBuffs[i].Elapsed())
@@ -328,6 +328,21 @@ namespace LeagueSandbox.GameServer
                     }
                 }
             }
+        }
+
+        public List<IChampion> GetAllChampions()
+        {
+            var champs = new List<IChampion>();
+            foreach (var kv in _champions)
+            {
+                var c = kv.Value;
+                if (c != null)
+                {
+                    champs.Add(c);
+                }
+            }
+
+            return champs;
         }
 
         public List<IChampion> GetAllChampionsFromTeam(TeamId team)
