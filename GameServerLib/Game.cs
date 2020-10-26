@@ -78,7 +78,10 @@ namespace LeagueSandbox.GameServer
 
         private List<GameScriptTimer> _gameScriptTimers;
 
-        public Game()
+        private int _human_count;
+        private int _agent_count;
+
+        public Game(int human_count, int agent_count)
         {
             _logger = LoggerProvider.GetLogger();
             ItemManager = new ItemManager();
@@ -88,6 +91,8 @@ namespace LeagueSandbox.GameServer
             ScriptEngine = new CSharpScriptEngine();
             RequestHandler = new NetworkHandler<ICoreRequest>();
             ResponseHandler = new NetworkHandler<ICoreResponse>();
+            _human_count = human_count;
+            _agent_count = agent_count;
         }
 
         public void Initialize(Config config, PacketServer server)
@@ -132,11 +137,42 @@ namespace LeagueSandbox.GameServer
             _logger.Info("Game is ready.");
 
             // Fake add second client
-            ((PlayerManager)PlayerManager)._players[1].Item2.IsStartedClient = true;
-            ((PlayerManager)PlayerManager)._players[1].Item2.IsMatchingVersion = true;
-            new HandleStartGame(this).HandlePacket(2, new StartGameRequest());
-            new HandleSync(this).HandlePacket(2, new SynchVersionRequest(0, 1, "4.20.0.315"));
-            new HandleSpawn(this).HandlePacket(2, new SpawnRequest());
+            uint humanObserver = 1; // 0 = false, 1 = true
+            uint agentCount = 1;
+            uint humanId = 0;
+            if (_human_count > 0)
+            {
+                humanObserver = 1;
+            }
+            if (_agent_count > 0)
+            {
+                agentCount = (uint) _agent_count;
+            }
+
+            for (uint i = 0; i < agentCount + humanObserver; i++) {
+                if (i != humanId) {
+                    ((PlayerManager)PlayerManager)._players[(int)i].Item2.IsStartedClient = true;
+                    ((PlayerManager)PlayerManager)._players[(int)i].Item2.IsMatchingVersion = true;
+                    new HandleStartGame(this).HandlePacket((int)i + 1, new StartGameRequest());
+                    new HandleSync(this).HandlePacket((int)i + 1, new SynchVersionRequest(0, i, "4.20.0.315"));
+                    new HandleSpawn(this).HandlePacket((int)i + 1, new SpawnRequest());
+                }
+            }
+
+            // Setup AI here
+            for (uint i = 0; i < agentCount + humanObserver; i++)
+            {
+                //if (i != humanId) {
+                    UserBuy(i + 1, 1055); // NOTE: Doesn't work properly
+                    for (byte j = 0; j < 1; j++)
+                    {
+                        UserUpgradeSpell(i + 1, 0); // NOTE: Doesn't work properly
+                        UserUpgradeSpell(i + 1, 1); // NOTE: Doesn't work properly
+                        UserUpgradeSpell(i + 1, 2); // NOTE: Doesn't work properly
+                        UserUpgradeSpell(i + 1, 3); // NOTE: Doesn't work properly
+                    }
+                //}
+            }
         }
         public void InitializePacketHandlers()
         {
@@ -228,12 +264,13 @@ namespace LeagueSandbox.GameServer
          * =====================================================================
          */
 
-        private readonly static float center = 7000.0f;
+        private readonly static float center_x = 7000.0f;
+        private readonly static float center_y = 7000.0f;
         private readonly static float bound_max = 750.0f;
-        private readonly float top_bound = center + bound_max;
-        private readonly float left_bound = center - bound_max;
-        private readonly float right_bound = center + bound_max;
-        private readonly float bottom_bound = center - bound_max;
+        private readonly float top_bound = center_y + bound_max;
+        private readonly float left_bound = center_x - bound_max;
+        private readonly float right_bound = center_x + bound_max;
+        private readonly float bottom_bound = center_y - bound_max;
 
         private readonly Random _random = new Random();
 
@@ -293,16 +330,19 @@ namespace LeagueSandbox.GameServer
         }
 
         public void UserAttack(uint userId, IAttackableUnit target) {
-            var champion = PlayerManager.GetPeerInfo((ulong) userId).Champion;
-            var vMoves = new List<Vector2>
+            if (withinBounds(UserPos(userId)) && !UserChamp(userId).IsDead)
+            {
+                var champion = PlayerManager.GetPeerInfo((ulong)userId).Champion;
+                var vMoves = new List<Vector2>
                 {
                     new Vector2(champion.X, champion.Y),
                     new Vector2(target.X, target.Y)
                 };
-            champion.UpdateMoveOrder(MoveOrder.MOVE_ORDER_ATTACKMOVE);
-            champion.SetWaypoints(vMoves);
-            // champion.SetTargetUnit(target);
-            // champion.AutoAttackHit(target);
+                champion.UpdateMoveOrder(MoveOrder.MOVE_ORDER_ATTACKMOVE);
+                champion.SetWaypoints(vMoves);
+                champion.SetTargetUnit(target);
+                champion.AutoAttackHit(target);
+            }
         }
 
         public void UserMove(uint userId, Vector2 target) {
@@ -354,10 +394,16 @@ namespace LeagueSandbox.GameServer
                 var owner = PlayerManager.GetPeerInfo((ulong)userId).Champion;
                 if (owner != null && owner.CanCast())
                 {
-                    var s = owner.GetSpell(spellSlot);
-                    if (s != null)
+                    try
                     {
-                        s.Cast(target.X, target.Y, target.X, target.Y, targetUnit);
+                        var s = owner.GetSpell(spellSlot);
+                        if (s != null)
+                        {
+                            s.Cast(target.X, target.Y, target.X, target.Y, targetUnit);
+                        }
+                    }
+                    catch {
+                    
                     }
                 }
             }
@@ -527,7 +573,7 @@ namespace LeagueSandbox.GameServer
             public List<Champ_Observation> champ_units;
         }
         
-        public String AIObserve(uint userId, uint targetUserId)
+        public String AIObserve(uint userId)
         {
             // Init units list as it's a struct, not an object
             Observation observation = new Observation();
@@ -637,28 +683,17 @@ namespace LeagueSandbox.GameServer
             redis = ConnectionMultiplexer.Connect("192.168.0.16");
             db = redis.GetDatabase();
 
+            /*
             // Setup AI here
-            for (uint i=1; i<1+1; i++)
+            for (uint i=1; i<4+1; i++)
             {
                 UserBuy(i, 1055); // NOTE: Doesn't work properly
-                for (byte j=0; j<1; j++)
+                for (byte j=0; j<5; j++)
                 {
                     UserUpgradeSpell(i, 0); // NOTE: Doesn't work properly
                 }
-
-                /*
-                if (UserChamp(i).Team == TeamId.TEAM_BLUE)
-                {
-                    UserTeleport(i, new Vector2(7000.0f - bound_max + 100.0f, 7000.0f - bound_max + 100.0f));
-                }
-                else
-                {
-                    UserTeleport(i, new Vector2(7000.0f + bound_max - 100.0f, 7000.0f + bound_max - 100.0f));
-                }
-                */
             }
-
-            // UserBuy(2, 1055); // NOTE: Doesn't work properly
+            */
         }
 
         public static float speedMultiplier = 4.0f;
@@ -719,6 +754,12 @@ namespace LeagueSandbox.GameServer
             public float y;
         }
 
+        struct Attack_Action
+        {
+            public uint player_id;
+            public uint target_player_id;
+        }
+
         struct Spell_Action
         {
             public uint player_id;
@@ -754,6 +795,10 @@ namespace LeagueSandbox.GameServer
                     Spell_Action s = JsonConvert.DeserializeObject<Spell_Action>(action_data);
                     UserSpell(s.player_id, s.spell_slot, 0, UserPos(s.target_player_id));
                     break;
+                case "attack":
+                    Attack_Action a = JsonConvert.DeserializeObject<Attack_Action>(action_data);
+                    UserAttack(a.player_id, UserChamp(a.target_player_id));
+                    break;
                 case "reset":
                     var champs = ObjectManager.GetChampionsInRange(0, 0, 28000.0f, false);
                     foreach (IChampion champ in champs)
@@ -779,19 +824,21 @@ namespace LeagueSandbox.GameServer
                     {
                         being_observed = true;
                     }
+                    /*
                     else if (current_command == "change_champion")
                     {
                         String command_data = db.ListLeftPop("command");
                         Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
-                        
+                        // change champion
                     }
+                    */
                 }
 
                 // Observations for AI agent when agent connects
                 if (being_observed)
                 {
                     // Only start observing when a client asks to take over
-                    db.ListLeftPush("observation", AIObserve(1, 2));
+                    db.ListLeftPush("observation", AIObserve(1));
 
                     // Only accept actions when we're being observed
                     long action_length = db.ListLength("action");

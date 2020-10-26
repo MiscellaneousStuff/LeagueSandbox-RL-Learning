@@ -29,7 +29,9 @@ namespace LeagueSandbox.GameServerConsole
             var gameServerLauncher = new GameServerLauncher(
                 parsedArgs.ServerPort,
                 parsedArgs.GameInfoJson,
-                gameServerBlowFish);
+                gameServerBlowFish,
+                parsedArgs.human_count,
+                parsedArgs.agent_count);
 
 #if DEBUG
             var configGameServerSettings = GameServerConfig.LoadFromJson(LoadConfig(
@@ -113,6 +115,7 @@ namespace LeagueSandbox.GameServerConsole
 
     public class ArgsOptions
     {
+
         [Option("config", Default = "Settings/GameInfo.json")]
         public string GameInfoJsonPath { get; set; }
 
@@ -127,6 +130,12 @@ namespace LeagueSandbox.GameServerConsole
 
         [Option("port", Default = (ushort)5119)]
         public ushort ServerPort { get; set; }
+
+        [Option("human_count", Default = 1)]
+        public int human_count { get; set; }
+
+        [Option("agent_count", Default = -1)]
+        public int agent_count { get; set; }
 
         public static ArgsOptions Parse(string[] args)
         {
