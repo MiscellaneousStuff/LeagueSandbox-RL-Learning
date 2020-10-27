@@ -81,8 +81,9 @@ namespace LeagueSandbox.GameServer
 
         private int _human_count;
         private int _agent_count;
+        private string _serverHost;
 
-        public Game(int human_count, int agent_count)
+        public Game(string serverHost="127.0.0.1", int human_count=1, int agent_count=0)
         {
             _logger = LoggerProvider.GetLogger();
             ItemManager = new ItemManager();
@@ -94,6 +95,7 @@ namespace LeagueSandbox.GameServer
             ResponseHandler = new NetworkHandler<ICoreResponse>();
             _human_count = human_count;
             _agent_count = agent_count;
+            _serverHost = serverHost;
         }
 
         public void Initialize(Config config, PacketServer server)
@@ -121,13 +123,6 @@ namespace LeagueSandbox.GameServer
                 ((PlayerManager)PlayerManager).AddPlayer(p);
             }
 
-            // Fake add second client
-            /*
-             * KEYS = ["player1", "player2", "playern", etc]
-             */
-            // ((PlayerManager)PlayerManager)._players[1].Item2.IsStartedClient = true;
-            // new HandleStartGame(this).HandlePacket(2, new StartGameRequest());
-
             _pauseTimer = new Timer
             {
                 AutoReset = true,
@@ -143,39 +138,50 @@ namespace LeagueSandbox.GameServer
             PacketNotifier = new PacketNotifier(_packetServer.PacketHandlerManager, Map.NavigationGrid);
             InitializePacketHandlers();
 
-            _logger.Info("Add players");
-            foreach (var p in Config.Players)
-            {
-                _logger.Info("Player " + p.Value.Name + " Added: " + p.Value.Champion);
-                ((PlayerManager)PlayerManager).AddPlayer(p);
-            }
-
             _logger.Info("Game is ready.");
 
             // Fake add second client
-            uint humanObserver = 1; // 0 = false, 1 = true
-            uint agentCount = 1;
-            uint humanId = 0;
+            uint humanObserver = 0; // 0 = false, 1 = true
+            uint agentCount = 0;
+            int humanId = -1;
+
             if (_human_count > 0)
             {
                 humanObserver = 1;
+                humanId = 0;
             }
+            else
+            {
+                humanObserver = 0;
+                humanId = -1;
+            }
+
             if (_agent_count > 0)
             {
                 agentCount = (uint) _agent_count;
             }
+            else
+            {
+                agentCount = 0;
+            }
 
-            for (uint i = 0; i < agentCount + humanObserver; i++) {
-                if (i != humanId) {
+            Console.WriteLine(
+              String.Format("HUMAN COUNT: {0}, AGENT COUNT: {1}, humanId: {2}",
+              humanObserver, agentCount, humanId
+            ));
+            for (int i = 0; i < agentCount + humanObserver; i++) {
+                if (i != humanId)
+                {
                     ((PlayerManager)PlayerManager)._players[(int)i].Item2.IsStartedClient = true;
                     ((PlayerManager)PlayerManager)._players[(int)i].Item2.IsMatchingVersion = true;
                     new HandleStartGame(this).HandlePacket((int)i + 1, new StartGameRequest());
-                    new HandleSync(this).HandlePacket((int)i + 1, new SynchVersionRequest(0, i, "4.20.0.315"));
+                    new HandleSync(this).HandlePacket((int)i + 1, new SynchVersionRequest(0, (uint) i, "4.20.0.315"));
                     new HandleSpawn(this).HandlePacket((int)i + 1, new SpawnRequest());
                 }
             }
 
             // Setup AI here
+            /*
             for (uint i = 0; i < agentCount + humanObserver; i++)
             {
                 //if (i != humanId) {
@@ -189,6 +195,7 @@ namespace LeagueSandbox.GameServer
                     }
                 //}
             }
+            */
         }
         public void InitializePacketHandlers()
         {
@@ -696,9 +703,10 @@ namespace LeagueSandbox.GameServer
         public void AIStart() {
             // Init Redis Here
             // redis = ConnectionMultiplexer.Connect("localhost");
-            redis = ConnectionMultiplexer.Connect("192.168.0.16");
+            // redis = ConnectionMultiplexer.Connect("192.168.0.100");
+            redis = ConnectionMultiplexer.Connect(_serverHost);
             db = redis.GetDatabase();
-
+            // Console.WriteLine(String.Format("REDIS INIT DB: {0}", db));
             /*
             // Setup AI here
             for (uint i=1; i<4+1; i++)
@@ -825,7 +833,8 @@ namespace LeagueSandbox.GameServer
             }
         }
 
-        bool being_observed = false;
+        //bool being_observed = false;
+        bool being_observed = true;
 
         public void AIUpdate(float diff)
         {
@@ -833,28 +842,38 @@ namespace LeagueSandbox.GameServer
             if (curCounter > counter)
             {
                 // Check for being observed
-                String current_command = db.ListLeftPop("command");
-                if (current_command != null)
+                try
                 {
-                    if (current_command == "start_observing")
-                    {
-                        being_observed = true;
-                    }
-                    /*
-                    else if (current_command == "change_champion")
-                    {
-                        String command_data = db.ListLeftPop("command");
-                        Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
-                        // change champion
-                    }
-                    */
+                  String current_command = db.ListLeftPop("command");
+                  if (current_command != null)
+                  {
+                      if (current_command == "start_observing")
+                      {
+                          being_observed = true;
+                      }
+                      /*
+                      else if (current_command == "change_champion")
+                      {
+                          String command_data = db.ListLeftPop("command");
+                          Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
+                          // change champion
+                      }
+                      */
+                  }
                 }
 
                 // Observations for AI agent when agent connects
                 if (being_observed)
                 {
                     // Only start observing when a client asks to take over
-                    db.ListLeftPush("observation", AIObserve(1));
+                    Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
+                    // for (uint i=0; i<_human_count + _agent_count; i++)
+                    for (uint i=0; i<1; i++)
+                    {
+                        db.ListLeftPush(
+                          "observation", AIObserve(i+1)
+                        );
+                    }
 
                     // Only accept actions when we're being observed
                     long action_length = db.ListLength("action");
@@ -869,13 +888,14 @@ namespace LeagueSandbox.GameServer
 
                 // Hardcoded behaviour
                 // AIBot(1, 2, curCounter);
-                AIBot(2, 1, curCounter);
+                // AIBot(2, 1, curCounter);
             }
             counter = curCounter;
         }
 
-        // 2 clients: cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 2" & "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
-        // 1 client:  cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
+        // 2 clients (win):  cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 2" & "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
+        // 1 client (win):   cd "C:\LeagueSandbox\League_Sandbox_Client\RADS\solutions\lol_game_client_sln\releases\0.0.1.68\deploy\" && "League of Legends.exe" "8394" "LoLLauncher.exe" "" "127.0.0.1 5119 17BLOhi6KZsTtldTsizvHg== 1"
+        // 1 client (linux): cd /home/joe/League-of-Legends-4-20/RADS/solutions/lol_game_client_sln/releases/0.0.1.68/deploy && wine ./League\ of\ Legends.exe "8394" "../../../../../../LoLLauncher.exe" "" "192.168.0.100 5119 17BLOhi6KZsTtldTsizvHg== 1"
 
         /*
          * =====================================================================

@@ -26,7 +26,9 @@ namespace LeagueSandbox.GameServerConsole
                 parsedArgs.GameInfoJson,
                 Encoding.UTF8.GetString(Resources.GameInfo));
 
+            var gameServerBlowFish = "17BLOhi6KZsTtldTsizvHg==";
             var gameServerLauncher = new GameServerLauncher(
+                parsedArgs.ServerHost,
                 parsedArgs.ServerPort,
                 parsedArgs.GameInfoJson,
                 gameServerBlowFish,
@@ -129,6 +131,9 @@ namespace LeagueSandbox.GameServerConsole
 
         [Option("config-gameserver-json", Default = "")]
         public string GameServerSettingsJson { get; set; }
+
+        [Option("host", Default = "127.0.0.1")]
+        public string ServerHost { get; set; }
 
         [Option("port", Default = (ushort)5119)]
         public ushort ServerPort { get; set; }
