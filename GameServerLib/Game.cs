@@ -842,8 +842,8 @@ namespace LeagueSandbox.GameServer
             if (curCounter > counter)
             {
                 // Check for being observed
-                try
-                {
+                //try
+                //{
                   String current_command = db.ListLeftPop("command");
                   if (current_command != null)
                   {
@@ -860,7 +860,7 @@ namespace LeagueSandbox.GameServer
                       }
                       */
                   }
-                }
+                //}
 
                 // Observations for AI agent when agent connects
                 if (being_observed)
