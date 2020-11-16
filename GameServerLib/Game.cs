@@ -138,6 +138,14 @@ namespace LeagueSandbox.GameServer
             PacketNotifier = new PacketNotifier(_packetServer.PacketHandlerManager, Map.NavigationGrid);
             InitializePacketHandlers();
 
+            // Init Redis Here
+            redis = ConnectionMultiplexer.Connect(_serverHost);
+            db = redis.GetDatabase();
+
+            // Inform pylol game has started to human clients can join
+            db.KeyDelete("observation");
+            db.ListLeftPush("observation", "\"clients_join\"");
+
             _logger.Info("Game is ready.");
 
             // Fake add second client
@@ -181,7 +189,6 @@ namespace LeagueSandbox.GameServer
             }
 
             // Setup AI here
-            /*
             for (uint i = 0; i < agentCount + humanObserver; i++)
             {
                 //if (i != humanId) {
@@ -195,7 +202,6 @@ namespace LeagueSandbox.GameServer
                     }
                 //}
             }
-            */
         }
         public void InitializePacketHandlers()
         {
@@ -410,7 +416,7 @@ namespace LeagueSandbox.GameServer
 
         public void UserSpell(uint userId, byte spellSlot, uint targetNetId, Vector2 target) {
             var champion = PlayerManager.GetPeerInfo((ulong)userId).Champion;
-            if (!champion.IsDead)
+            if (!champion.IsDead) //  && withinBounds(target))
             {
                 var targetObj = ObjectManager.GetObjectById(targetNetId); // Param = NetID ; NOTE: I'm assuming NetId = 0 is special and means nothing in particular
                 var targetUnit = targetObj as IAttackableUnit;
@@ -543,6 +549,9 @@ namespace LeagueSandbox.GameServer
 
         struct Champ_Observation
         {
+            // UserID
+            public uint user_id;
+
             // Transform
             public Vector2 position;
             public float facing_angle;
@@ -618,6 +627,15 @@ namespace LeagueSandbox.GameServer
             {
                 // Init unit observation
                 Champ_Observation champ_observation = new Champ_Observation();
+                
+                // Stat: UserID
+                for (uint i = 1; i < champs.Count+1; i++)
+                {
+                    if (UserChamp(i) == champ)
+                    {
+                        champ_observation.user_id = i;
+                    }
+                }
 
                 // Stat: Transform
                 champ_observation.position = champ.GetPosition();
@@ -701,12 +719,6 @@ namespace LeagueSandbox.GameServer
          */
 
         public void AIStart() {
-            // Init Redis Here
-            // redis = ConnectionMultiplexer.Connect("localhost");
-            // redis = ConnectionMultiplexer.Connect("192.168.0.100");
-            redis = ConnectionMultiplexer.Connect(_serverHost);
-            db = redis.GetDatabase();
-            // Console.WriteLine(String.Format("REDIS INIT DB: {0}", db));
             /*
             // Setup AI here
             for (uint i=1; i<4+1; i++)
@@ -789,6 +801,8 @@ namespace LeagueSandbox.GameServer
             public uint player_id;
             public uint target_player_id;
             public byte spell_slot;
+            public float x;
+            public float y;
         }
 
         struct Change_Champion_Command
@@ -817,7 +831,7 @@ namespace LeagueSandbox.GameServer
                     break;
                 case "spell":
                     Spell_Action s = JsonConvert.DeserializeObject<Spell_Action>(action_data);
-                    UserSpell(s.player_id, s.spell_slot, 0, UserPos(s.target_player_id));
+                    UserSpell(s.player_id, s.spell_slot, 0, new Vector2(s.x, s.y));
                     break;
                 case "attack":
                     Attack_Action a = JsonConvert.DeserializeObject<Attack_Action>(action_data);
@@ -867,8 +881,7 @@ namespace LeagueSandbox.GameServer
                 {
                     // Only start observing when a client asks to take over
                     Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
-                    // for (uint i=0; i<_human_count + _agent_count; i++)
-                    for (uint i=0; i<1; i++)
+                    for (uint i=0; i<_human_count + _agent_count; i++)
                     {
                         db.ListLeftPush(
                           "observation", AIObserve(i+1)
@@ -940,6 +953,9 @@ namespace LeagueSandbox.GameServer
         public void Start()
         {
             IsRunning = true;
+
+            db.KeyDelete("observation");
+            db.ListLeftPush("observation", "\"game_started\"");
         }
 
         public void Stop()
