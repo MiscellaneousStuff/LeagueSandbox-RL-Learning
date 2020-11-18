@@ -79,11 +79,14 @@ namespace LeagueSandbox.GameServer
 
         private List<GameScriptTimer> _gameScriptTimers;
 
-        private int _human_count;
-        private int _agent_count;
-        private string _serverHost;
+        private int _human_count; // Number of lol clients to connect
+        private int _agent_count; // Number of AI agents to connect
+        private string _serverHost; // Server host IP
+        private float _limitRate; // Milliseconds between actions/observations
+        private float _multiplier; // Number of actions/observations per second
 
-        public Game(string serverHost="127.0.0.1", int human_count=1, int agent_count=0)
+        public Game(string serverHost="127.0.0.1", int human_count=1,
+            int agent_count=0, float multiplier=4.0f)
         {
             _logger = LoggerProvider.GetLogger();
             ItemManager = new ItemManager();
@@ -96,6 +99,7 @@ namespace LeagueSandbox.GameServer
             _human_count = human_count;
             _agent_count = agent_count;
             _serverHost = serverHost;
+            _multiplier = multiplier;
         }
 
         public void Initialize(Config config, PacketServer server)
@@ -148,6 +152,9 @@ namespace LeagueSandbox.GameServer
 
             _logger.Info("Game is ready.");
 
+            // Set multiplier here
+            _limitRate = 1000.0f / _multiplier;
+            
             // Fake add second client
             uint humanObserver = 0; // 0 = false, 1 = true
             uint agentCount = 0;
@@ -547,6 +554,28 @@ namespace LeagueSandbox.GameServer
          * ---------------------------------------------------------------------
          */
 
+        struct Champ_Actions_Available
+        {
+            // Whether can noop;
+            public bool can_no_op;
+
+            // Whether can move
+            public bool can_move;
+
+            // Whether can auto attack
+            public bool can_auto;
+
+            // Whether can cast champion abilities
+            public bool can_spell_0;
+            public bool can_spell_1;
+            public bool can_spell_2;
+            public bool can_spell_3;
+
+            // Whether can cast summoner spells
+            public bool can_spell_4;
+            public bool can_spell_5;
+        }
+
         struct Champ_Observation
         {
             // UserID
@@ -599,21 +628,47 @@ namespace LeagueSandbox.GameServer
             public float sum_2_cooldown;
         }
 
+        struct ResponseObservation
+        {
+            public Observation observation;
+        }
+
         struct Observation
         {
+            // Current game time
             public float game_time;
+
+            // Us and others
             public List<Champ_Observation> champ_units;
+
+            // Available Actions
+            public Champ_Actions_Available available_actions;
         }
         
         public String AIObserve(uint userId)
         {
             // Init units list as it's a struct, not an object
+            ResponseObservation response = new ResponseObservation();
             Observation observation = new Observation();
-            observation.champ_units = new List<Champ_Observation>();
+            Champ_Actions_Available available_actions = new Champ_Actions_Available();
+
+            // All actions available by default
+            available_actions.can_no_op     = true;
+            available_actions.can_move      = true;
+            available_actions.can_auto      = true;
+            available_actions.can_spell_0   = true;
+            available_actions.can_spell_1   = true;
+            available_actions.can_spell_2   = true;
+            available_actions.can_spell_3   = true;
+            available_actions.can_spell_4   = true;
+            available_actions.can_spell_5   = true;
 
             // Global data
             observation.game_time = GameTime;
-            
+
+            // Set champ unit list
+            observation.champ_units = new List<Champ_Observation>();
+
             // Current Champion
             var champion = PlayerManager.GetPeerInfo((ulong) userId).Champion;
 
@@ -627,13 +682,28 @@ namespace LeagueSandbox.GameServer
             {
                 // Init unit observation
                 Champ_Observation champ_observation = new Champ_Observation();
-                
+
                 // Stat: UserID
                 for (uint i = 1; i < champs.Count+1; i++)
                 {
+                    // User id if observation is off the requesting observed player
                     if (UserChamp(i) == champ)
                     {
+                        // Set user id to observer
                         champ_observation.user_id = i;
+
+                        // If we're dead, that disallows a lot of actions
+                        if (champ.IsDead)
+                        {
+                            available_actions.can_move      = false;
+                            available_actions.can_auto      = false;
+                            available_actions.can_spell_0   = false;
+                            available_actions.can_spell_1   = false;
+                            available_actions.can_spell_2   = false;
+                            available_actions.can_spell_3   = false;
+                            available_actions.can_spell_4   = false;
+                            available_actions.can_spell_5   = false;
+                        }
                     }
                 }
 
@@ -672,8 +742,8 @@ namespace LeagueSandbox.GameServer
                 champ_observation.distance_to_me = MathExtension.Distance(champ.GetPosition(), champion.GetPosition());
 
                 // Abilities (First 4 are Q,W,E,R and last 2 are summoners)
-                try
-                {
+                //try
+                //{
                     champ_observation.q_cooldown = champ.GetSpell(0).CurrentCooldown;
                     champ_observation.q_level = champ.GetSpell(0).Level;
                     champ_observation.w_cooldown = champ.GetSpell(1).CurrentCooldown;
@@ -684,21 +754,7 @@ namespace LeagueSandbox.GameServer
                     champ_observation.r_level = champ.GetSpell(3).Level;
                     champ_observation.sum_1_cooldown = champ.GetSpell(4).CurrentCooldown;
                     champ_observation.sum_2_cooldown = champ.GetSpell(5).CurrentCooldown;
-                }
-
-                // Note: Only necessary for testing, if a champion is swapped out, GetSpell will throw an error while there are no spells to get
-                catch {
-                    champ_observation.q_cooldown = 0;
-                    champ_observation.q_level = 0;
-                    champ_observation.w_cooldown = 0;
-                    champ_observation.w_level = 0;
-                    champ_observation.e_cooldown = 0;
-                    champ_observation.e_level = 0;
-                    champ_observation.r_cooldown = 0;
-                    champ_observation.r_level = 0;
-                    champ_observation.sum_1_cooldown = 0;
-                    champ_observation.sum_2_cooldown = 0;
-                }
+                //}
 
                 // General
                 champ_observation.death_count = champ.ChampStats.Deaths;
@@ -708,7 +764,9 @@ namespace LeagueSandbox.GameServer
             }
 
             // Return JSON observation string
-            JObject o = (JObject) JToken.FromObject(observation);
+            observation.available_actions = available_actions;
+            response.observation = observation;
+            JObject o = (JObject) JToken.FromObject(response);
             return o.ToString();
         }
 
@@ -732,8 +790,6 @@ namespace LeagueSandbox.GameServer
             */
         }
 
-        public static float speedMultiplier = 4.0f;
-        public float limitRate = 1000.0f / speedMultiplier;
         public int counter = -1;
         public void AIBot(uint userId, uint targetUserId, int curCounter)
         {
@@ -852,7 +908,7 @@ namespace LeagueSandbox.GameServer
 
         public void AIUpdate(float diff)
         {
-            int curCounter = (int) Math.Floor(GameTime / limitRate);
+            int curCounter = (int) Math.Floor(GameTime / _limitRate);
             if (curCounter > counter)
             {
                 // Check for being observed
@@ -880,7 +936,7 @@ namespace LeagueSandbox.GameServer
                 if (being_observed)
                 {
                     // Only start observing when a client asks to take over
-                    Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
+                    // Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
                     for (uint i=0; i<_human_count + _agent_count; i++)
                     {
                         db.ListLeftPush(
