@@ -84,6 +84,8 @@ namespace LeagueSandbox.GameServer
         private string _serverHost; // Server host IP
         private float _limitRate; // Milliseconds between actions/observations
         private float _multiplier; // Number of actions/observations per second
+        private ReplayContainer replay_container;   // Used to record agent actions only ...
+                                                    // ... (doesn't currently record human player actions)
 
         public Game(string serverHost="127.0.0.1", int human_count=1,
             int agent_count=0, float multiplier=4.0f)
@@ -885,6 +887,30 @@ namespace LeagueSandbox.GameServer
             public string champion_name;
         }
 
+        struct Save_Replay_Info
+        {
+            public string map;
+            public string players;
+            public float multiplier;
+        }
+
+        // =====================================================================================
+        // Replay Structures
+        // =====================================================================================
+
+        struct ReplayContainer
+        {
+            public Save_Replay_Info info;
+            public List<ReplayAction> actions;
+        }
+
+        struct ReplayAction
+        {
+            public float game_time;
+            public string action_type;
+            public string action_data;
+        }
+
         public void AIAct(String action_type, String action_data)
         {
             switch (action_type)
@@ -929,26 +955,37 @@ namespace LeagueSandbox.GameServer
             int curCounter = (int) Math.Floor(GameTime / _limitRate);
             if (curCounter > counter)
             {
-                // Check for being observed
-                //try
-                //{
-                  String current_command = db.ListLeftPop("command");
-                  if (current_command != null)
-                  {
-                      if (current_command == "start_observing")
-                      {
-                          being_observed = true;
-                      }
-                      /*
-                      else if (current_command == "change_champion")
-                      {
-                          String command_data = db.ListLeftPop("command");
-                          Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
-                          // change champion
-                      }
-                      */
-                  }
-                //}
+                
+                String current_command = db.ListRightPop("command");
+                if (current_command != null)
+                {
+                    if (current_command == "start_observing")
+                    {
+                        being_observed = true;
+                    }
+                    else if (current_command == "save_replay")
+                    {
+                        String command_data = db.ListRightPop("command");
+                        Console.WriteLine(String.Format("save_replay data: {0}", command_data==null, command_data));
+                        Save_Replay_Info info = JsonConvert.DeserializeObject<Save_Replay_Info>(command_data);
+
+                        // Generate replay json data
+                        replay_container.info = info;
+                        JObject o = (JObject) JToken.FromObject(replay_container);
+                        String data = (String) o.ToString();
+                        Console.WriteLine(o);
+                        
+                        db.ListLeftPush("command_data", data);
+                    }
+                    /*
+                    else if (current_command == "change_champion")
+                    {
+                        String command_data = db.ListLeftPop("command");
+                        Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
+                        // change champion
+                    }
+                    */
+                }
 
                 // Observations for AI agent when agent connects
                 if (being_observed)
@@ -957,17 +994,26 @@ namespace LeagueSandbox.GameServer
                     // Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
                     for (uint i=0; i<_human_count + _agent_count; i++)
                     {
-                        db.ListLeftPush(
-                          "observation", AIObserve(i+1)
-                        );
+                        db.ListLeftPush("observation", AIObserve(i+1));
                     }
 
                     // Only accept actions when we're being observed
                     long action_length = db.ListLength("action");
                     while (action_length > 0 && action_length % 2 == 0)
                     {
+                        // Get action type and data
                         String action_type = db.ListRightPop("action");
                         String action_data = db.ListRightPop("action");
+
+                        // Replay current action
+                        ReplayAction cur_action;
+                        cur_action.game_time = GameTime;
+                        cur_action.action_type = action_type;
+                        cur_action.action_data = action_data;
+
+                        replay_container.actions.Add(cur_action);
+
+                        // Perform AI agent action
                         AIAct(action_type, action_data);
                         action_length = db.ListLength("action");
                     }
@@ -1030,6 +1076,10 @@ namespace LeagueSandbox.GameServer
 
             db.KeyDelete("observation");
             db.ListLeftPush("observation", "\"game_started\"");
+
+            // Start recording from here as this is the earliest that agents can start issuing commands
+            replay_container = new ReplayContainer();
+            replay_container.actions = new List<ReplayAction>();
         }
 
         public void Stop()
