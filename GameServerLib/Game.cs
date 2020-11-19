@@ -703,6 +703,24 @@ namespace LeagueSandbox.GameServer
                             available_actions.can_spell_3   = false;
                             available_actions.can_spell_4   = false;
                             available_actions.can_spell_5   = false;
+                        } else {
+                            if (champ.GetSpell(0).CurrentCooldown > 0)
+                            { available_actions.can_spell_0 = false; }
+
+                            if (champ.GetSpell(1).CurrentCooldown > 0)
+                            { available_actions.can_spell_1 = false; }
+
+                            if (champ.GetSpell(2).CurrentCooldown > 0)
+                            { available_actions.can_spell_2 = false; }
+
+                            if (champ.GetSpell(3).CurrentCooldown > 0)
+                            { available_actions.can_spell_3 = false; }
+
+                            if (champ.GetSpell(4).CurrentCooldown > 0)
+                            { available_actions.can_spell_4 = false; }
+
+                            if (champ.GetSpell(5).CurrentCooldown > 0)
+                            { available_actions.can_spell_5 = false; }
                         }
                     }
                 }
