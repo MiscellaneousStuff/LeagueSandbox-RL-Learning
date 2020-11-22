@@ -34,7 +34,8 @@ namespace LeagueSandbox.GameServerConsole
                 gameServerBlowFish,
                 parsedArgs.human_count,
                 parsedArgs.agent_count,
-                parsedArgs.multiplier);
+                parsedArgs.multiplier,
+                parsedArgs.replay_path);
 
 #if DEBUG
             var configGameServerSettings = GameServerConfig.LoadFromJson(LoadConfig(
@@ -147,6 +148,9 @@ namespace LeagueSandbox.GameServerConsole
 
         [Option("multiplier", Default = 4.0f)]
         public float multiplier { get; set; }
+
+        [Option("replay_path", Default = "")]
+        public string replay_path { get; set; }
 
         public static ArgsOptions Parse(string[] args)
         {

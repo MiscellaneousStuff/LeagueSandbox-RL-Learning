@@ -17,8 +17,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.IO;
 using System.Reflection;
 using System.Threading;
+// using System.Runtime.Serialization;
 using Timer = System.Timers.Timer;
 using GameServerCore.Packets.PacketDefinitions;
 using GameServerCore.Packets.PacketDefinitions.Requests;
@@ -86,9 +88,10 @@ namespace LeagueSandbox.GameServer
         private float _multiplier; // Number of actions/observations per second
         private ReplayContainer replay_container;   // Used to record agent actions only ...
                                                     // ... (doesn't currently record human player actions)
+        private string _replay_path;
 
         public Game(string serverHost="127.0.0.1", int human_count=1,
-            int agent_count=0, float multiplier=4.0f)
+            int agent_count=0, float multiplier=4.0f, string replay_path="")
         {
             _logger = LoggerProvider.GetLogger();
             ItemManager = new ItemManager();
@@ -102,6 +105,7 @@ namespace LeagueSandbox.GameServer
             _agent_count = agent_count;
             _serverHost = serverHost;
             _multiplier = multiplier;
+            _replay_path = replay_path;
         }
 
         public void Initialize(Config config, PacketServer server)
@@ -210,6 +214,49 @@ namespace LeagueSandbox.GameServer
                         UserUpgradeSpell(i + 1, 3); // NOTE: Doesn't work properly
                     }
                 //}
+            }
+
+            // If there's a replay, check the file exists then setup the data here
+            if (!String.IsNullOrEmpty(_replay_path))
+            {
+                Console.WriteLine("REPLAY FILE REQUESTED");
+                try
+                {
+                    Console.WriteLine("ATTEMPTING TO READ REPLAY FILE");
+                    using (StreamReader r = new StreamReader(_replay_path))
+                    {
+                        Console.WriteLine("ATTEMPTING TO DECODE REPLAY FILE");
+                        string json = r.ReadToEnd();
+                        replay_container = JsonConvert.DeserializeObject<ReplayContainer>(json);
+                        
+                        /*
+                        Console.WriteLine(String.Format("REPLAYING FILE: {0} {1} {2} {3}",
+                            _replay_path,
+                            replay_container.info.map,
+                            replay_container.info.players,
+                            replay_container.info.multiplier));
+                        */
+
+                        replay_last_game_time = replay_container.actions[0].game_time;
+                        _limitRate = 1000.0f / replay_container.info.multiplier;
+                        
+                        Console.WriteLine("REPLAY FILE DECODED, READY TO GO");
+                        Console.WriteLine(String.Format("ACTION COUNT FROM REPLAY FILE {0}", replay_container.actions.Count));
+                        /*
+                        Console.WriteLine(String.Format(
+                            "FIRST ACTION:\n{0}\n{1}\n{2}",
+                            replay_container.actions[0].game_time,
+                            replay_container.actions[0].action_type,
+                            replay_container.actions[0].action_data
+                            ));
+                        */
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    // Console.WriteLine(String.Format("Replay file: '{0}' does not exist.", _replay_path));
+                }
             }
         }
         public void InitializePacketHandlers()
@@ -898,13 +945,13 @@ namespace LeagueSandbox.GameServer
         // Replay Structures
         // =====================================================================================
 
-        struct ReplayContainer
+        struct ReplayContainer // : ISerializable 
         {
             public Save_Replay_Info info;
             public List<ReplayAction> actions;
         }
 
-        struct ReplayAction
+        struct ReplayAction // : ISerializable 
         {
             public float game_time;
             public string action_type;
@@ -950,6 +997,9 @@ namespace LeagueSandbox.GameServer
         //bool being_observed = false;
         bool being_observed = true;
 
+        float replay_last_game_time;
+        private int last_action_index = 0;
+
         public void AIUpdate(float diff)
         {
             int curCounter = (int) Math.Floor(GameTime / _limitRate);
@@ -968,54 +1018,97 @@ namespace LeagueSandbox.GameServer
                         String command_data = db.ListRightPop("command");
                         Console.WriteLine(String.Format("save_replay data: {0}", command_data==null, command_data));
                         Save_Replay_Info info = JsonConvert.DeserializeObject<Save_Replay_Info>(command_data);
-
+                        
                         // Generate replay json data
                         replay_container.info = info;
                         JObject o = (JObject) JToken.FromObject(replay_container);
                         String data = (String) o.ToString();
-                        Console.WriteLine(o);
+                        Console.WriteLine(String.Format("REPLAY DATA FROM GAMESERVER: {0} {1}", replay_container.actions.Count, o));
                         
                         db.ListLeftPush("command_data", data);
                     }
-                    /*
-                    else if (current_command == "change_champion")
-                    {
-                        String command_data = db.ListLeftPop("command");
-                        Change_Champion_Command m = JsonConvert.DeserializeObject<Change_Champion_Command>(command_data);
-                        // change champion
-                    }
-                    */
                 }
 
                 // Observations for AI agent when agent connects
                 if (being_observed)
-                {
-                    // Only start observing when a client asks to take over
-                    // Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
-                    for (uint i=0; i<_human_count + _agent_count; i++)
+                {   
+                    //Console.WriteLine("BEING OBSERVED");
+                    // Run replay if there's a valid file provided
+                    if (!String.IsNullOrEmpty(_replay_path))
                     {
-                        db.ListLeftPush("observation", AIObserve(i+1));
+                        Console.WriteLine(String.Format("SHITE: {0} {1}", last_action_index, replay_container.actions.Count));
+                        if (last_action_index < replay_container.actions.Count)
+                        {
+                            Console.WriteLine("ACTIONS LEFT TO REPLAY");
+                            // Get actions for current batch
+                            Console.WriteLine(String.Format("LENGTH OF ACTION BUFFER: {0}", replay_container.actions.Count));
+                            Console.WriteLine(String.Format("FIRST GAME TIME: {0}", replay_container.actions[last_action_index].game_time));
+                            replay_last_game_time = replay_container.actions[last_action_index].game_time;
+                            List<ReplayAction> current_actions = new List<ReplayAction>();
+                            ReplayAction current_action = replay_container.actions[last_action_index];
+                            while ( current_action.game_time == replay_last_game_time &&
+                                    last_action_index < replay_container.actions.Count)
+                            {
+                                // Add current action to batch
+                                Console.WriteLine(String.Format("LAST ACTION INDEX: {0} {1} {2}", last_action_index, current_action.game_time, replay_last_game_time));
+                                current_actions.Add(current_action);
+
+                                // Go to next action
+                                last_action_index += 1;
+                                if (last_action_index < replay_container.actions.Count)
+                                {
+                                    current_action = replay_container.actions[last_action_index];
+                                }
+                            }
+
+                            Console.WriteLine(String.Format("ACTION INDEX: {0}, ACTION COUNT: {1}", last_action_index, current_actions.Count));
+
+                            // Execute actions for current batch
+                            foreach (ReplayAction action in current_actions)
+                            {
+                                AIAct(action.action_type, action.action_data);
+                            }
+                            if (last_action_index >= replay_container.actions.Count)
+                            {
+                                SetToExit = true;
+                            }
+                        }
+                        else
+                        {
+                            SetToExit = true;
+                        }
                     }
 
-                    // Only accept actions when we're being observed
-                    long action_length = db.ListLength("action");
-                    while (action_length > 0 && action_length % 2 == 0)
+                    // Otherwise play game
+                    else
                     {
-                        // Get action type and data
-                        String action_type = db.ListRightPop("action");
-                        String action_data = db.ListRightPop("action");
+                        // Only start observing when a client asks to take over
+                        // Console.WriteLine(String.Format("OBSERVING: {0} NUMBER OF AGENTS", _human_count + _agent_count));
+                        for (uint i=0; i<_human_count + _agent_count; i++)
+                        {
+                            db.ListLeftPush("observation", AIObserve(i+1));
+                        }
 
-                        // Replay current action
-                        ReplayAction cur_action;
-                        cur_action.game_time = GameTime;
-                        cur_action.action_type = action_type;
-                        cur_action.action_data = action_data;
+                        // Only accept actions when we're being observed
+                        long action_length = db.ListLength("action");
+                        while (action_length > 0 && action_length % 2 == 0)
+                        {
+                            // Get action type and data
+                            String action_type = db.ListRightPop("action");
+                            String action_data = db.ListRightPop("action");
 
-                        replay_container.actions.Add(cur_action);
+                            // Replay current action
+                            ReplayAction cur_action;
+                            cur_action.game_time = GameTime;
+                            cur_action.action_type = action_type;
+                            cur_action.action_data = action_data;
 
-                        // Perform AI agent action
-                        AIAct(action_type, action_data);
-                        action_length = db.ListLength("action");
+                            replay_container.actions.Add(cur_action);
+                            // Console.WriteLine(String.Format("CURRENT ACTION: {0} {1} {2}", cur_action.game_time, cur_action.action_type, cur_action.action_data));
+                            // Perform AI agent action
+                            AIAct(action_type, action_data);
+                            action_length = db.ListLength("action");
+                        }
                     }
                 }
 
@@ -1078,8 +1171,11 @@ namespace LeagueSandbox.GameServer
             db.ListLeftPush("observation", "\"game_started\"");
 
             // Start recording from here as this is the earliest that agents can start issuing commands
-            replay_container = new ReplayContainer();
-            replay_container.actions = new List<ReplayAction>();
+            if (String.IsNullOrEmpty(_replay_path))
+            {
+                replay_container = new ReplayContainer();
+                replay_container.actions = new List<ReplayAction>();
+            }
         }
 
         public void Stop()

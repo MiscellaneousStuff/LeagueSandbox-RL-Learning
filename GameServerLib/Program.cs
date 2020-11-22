@@ -21,13 +21,15 @@ namespace LeagueSandbox.GameServer
         public string ServerHost { get; private set; }
 
         public GameServerLauncher(string serverHost, ushort serverPort, string configJson,
-            string blowfishKey, int human_count, int agent_count, float multiplier)
+            string blowfishKey, int human_count, int agent_count, float multiplier,
+            string replay_path)
         {
             ConfigJson = configJson;
             ServerPort = serverPort;
             ServerHost = serverHost;
             _logger = LoggerProvider.GetLogger();
-            game = new Game(serverHost, human_count, agent_count, multiplier);
+            game = new Game(serverHost, human_count, agent_count, multiplier,
+                            replay_path);
 
             _server = new Server(game, serverHost, serverPort, configJson);
 
