@@ -89,9 +89,11 @@ namespace LeagueSandbox.GameServer
         private ReplayContainer replay_container;   // Used to record agent actions only ...
                                                     // ... (doesn't currently record human player actions)
         private string _replay_path;
-
+        private ushort _redis_port;
+        
         public Game(string serverHost="127.0.0.1", int human_count=1,
-            int agent_count=0, float multiplier=4.0f, string replay_path="")
+            int agent_count=0, float multiplier=4.0f, string replay_path="",
+            ushort redis_port=6379)
         {
             _logger = LoggerProvider.GetLogger();
             ItemManager = new ItemManager();
@@ -106,6 +108,7 @@ namespace LeagueSandbox.GameServer
             _serverHost = serverHost;
             _multiplier = multiplier;
             _replay_path = replay_path;
+            _redis_port = redis_port;
         }
 
         public void Initialize(Config config, PacketServer server)
@@ -149,7 +152,7 @@ namespace LeagueSandbox.GameServer
             InitializePacketHandlers();
 
             // Init Redis Here
-            redis = ConnectionMultiplexer.Connect(_serverHost);
+            redis = ConnectionMultiplexer.Connect(String.Format("{0}:{1}", _serverHost, _redis_port));
             db = redis.GetDatabase();
 
             // Inform pylol game has started to human clients can join

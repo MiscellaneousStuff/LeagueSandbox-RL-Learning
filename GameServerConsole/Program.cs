@@ -35,7 +35,8 @@ namespace LeagueSandbox.GameServerConsole
                 parsedArgs.human_count,
                 parsedArgs.agent_count,
                 parsedArgs.multiplier,
-                parsedArgs.replay_path);
+                parsedArgs.replay_path,
+                parsedArgs.redis_port);
 
 #if DEBUG
             var configGameServerSettings = GameServerConfig.LoadFromJson(LoadConfig(
@@ -151,6 +152,9 @@ namespace LeagueSandbox.GameServerConsole
 
         [Option("replay_path", Default = "")]
         public string replay_path { get; set; }
+
+        [Option("redis_port", Default = 6379)]
+        public ushort redis_port { get; set; }
 
         public static ArgsOptions Parse(string[] args)
         {
