@@ -657,6 +657,7 @@ namespace LeagueSandbox.GameServer
             public float current_gold;
             public int death_count;
             public float move_speed;
+            public float current_xp;
 
             // Team
             public float my_team;
@@ -801,6 +802,7 @@ namespace LeagueSandbox.GameServer
                 champ_observation.mr = champ.Stats.Armor.Total;
                 champ_observation.current_gold = champ.Stats.Gold;
                 champ_observation.move_speed = champ.Stats.MoveSpeed.Total;
+                champ_observation.current_xp = champ.Stats.Experience;
 
                 // Team
                 champ_observation.my_team = Convert.ToSingle(champ.Team == champion.Team);
