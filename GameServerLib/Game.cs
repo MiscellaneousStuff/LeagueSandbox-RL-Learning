@@ -656,6 +656,7 @@ namespace LeagueSandbox.GameServer
             public float mr;
             public float current_gold;
             public int death_count;
+            public int kill_count;
             public float move_speed;
             public float current_xp;
 
@@ -830,6 +831,7 @@ namespace LeagueSandbox.GameServer
 
                 // General
                 champ_observation.death_count = champ.ChampStats.Deaths;
+                champ_observation.kill_count = champ.ChampStats.Kills;
 
                 // Add unit to observation
                 observation.champ_units.Add(champ_observation);
