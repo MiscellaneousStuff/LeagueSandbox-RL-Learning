@@ -736,8 +736,8 @@ namespace LeagueSandbox.GameServer
             {
                 // Init unit observation
                 Champ_Observation champ_observation = new Champ_Observation();
-
-                // Stat: UserID
+                
+                // Stat: UserID, Available Actions (Observer only values)
                 for (uint i = 1; i < champs.Count+1; i++)
                 {
                     // User id if observation is off the requesting observed player
@@ -777,6 +777,13 @@ namespace LeagueSandbox.GameServer
                             { available_actions.can_spell_5 = false; }
                         }
                     }
+                }
+
+                // Visibility: If the champion isn't visible, set observation for this player to 0
+                if (!champ.IsVisibleByTeam(champion.Team))
+                {
+                    observation.champ_units.Add(champ_observation);
+                    continue;
                 }
 
                 // Stat: Transform
