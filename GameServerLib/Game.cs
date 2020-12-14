@@ -459,6 +459,11 @@ namespace LeagueSandbox.GameServer
             }
         }
 
+        public void BroadcastChat(String message) {
+            PacketNotifier.NotifyDebugMessage(TeamId.TEAM_BLUE, message);
+            PacketNotifier.NotifyDebugMessage(TeamId.TEAM_PURPLE, message);
+        }
+
         // Default stalk range is 200 units
         public void UserStalk(uint stalkerId, uint victimId, float stalkRange = 500.0f) {
             // Basic Stalking
@@ -935,6 +940,11 @@ namespace LeagueSandbox.GameServer
             public float y;
         }
 
+        struct Broadcast_Message_Action
+        {
+            public string msg;
+        }
+
         struct Change_Champion_Command
         {
             public uint player_id;
@@ -990,6 +1000,10 @@ namespace LeagueSandbox.GameServer
                 case "attack":
                     Attack_Action a = JsonConvert.DeserializeObject<Attack_Action>(action_data);
                     UserAttack(a.player_id, UserChamp(a.target_player_id));
+                    break;
+                case "message":
+                    Broadcast_Message_Action b = JsonConvert.DeserializeObject<Broadcast_Message_Action>(action_data);
+                    BroadcastChat(b.msg);
                     break;
                 case "reset":
                     var champs = ObjectManager.GetChampionsInRange(0, 0, 28000.0f, false);
