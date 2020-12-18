@@ -784,12 +784,14 @@ namespace LeagueSandbox.GameServer
                     }
                 }
 
+                /*
                 // Visibility: If the champion isn't visible, set observation for this player to 0
                 if (!champ.IsVisibleByTeam(champion.Team))
                 {
                     observation.champ_units.Add(champ_observation);
                     continue;
                 }
+                */
 
                 // Stat: Transform
                 champ_observation.position = champ.GetPosition();
