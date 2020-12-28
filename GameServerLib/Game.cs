@@ -90,10 +90,11 @@ namespace LeagueSandbox.GameServer
                                                     // ... (doesn't currently record human player actions)
         private string _replay_path;
         private ushort _redis_port;
-        
+        private float _step_multiplier;
+
         public Game(string serverHost="127.0.0.1", int human_count=1,
-            int agent_count=0, float multiplier=4.0f, string replay_path="",
-            ushort redis_port=6379)
+            int agent_count=0, float multiplier=7.5f, string replay_path="",
+            ushort redis_port=6379, float step_multiplier=1)
         {
             _logger = LoggerProvider.GetLogger();
             ItemManager = new ItemManager();
@@ -109,6 +110,7 @@ namespace LeagueSandbox.GameServer
             _multiplier = multiplier;
             _replay_path = replay_path;
             _redis_port = redis_port;
+            _step_multiplier = step_multiplier;
         }
 
         public void Initialize(Config config, PacketServer server)
@@ -434,13 +436,28 @@ namespace LeagueSandbox.GameServer
         }
 
         public void UserMove(uint userId, Vector2 target) {
-            if (withinBounds(target) && !UserChamp(userId).IsDead) {
+            // NOTE: Bounds are only set for 1v1 ML tests, don't need it for TestAgent
+            //if (withinBounds(target) && !UserChamp(userId).IsDead) {
+            if (!UserChamp(userId).IsDead) {
                 var champion = PlayerManager.GetPeerInfo((ulong)userId).Champion;
                 var vMoves = new List<Vector2>
                 {
                     new Vector2(champion.X, champion.Y),
                     new Vector2(target.X, target.Y)
                 };
+                champion.UpdateMoveOrder(MoveOrder.MOVE_ORDER_MOVE);
+                champion.SetWaypoints(vMoves);
+            }
+        }
+
+        public void UserMoveWaypoints(uint userId, Vector2 target, List<Vector2> waypoints) {
+            // NOTE: Bounds are only set for 1v1 ML tests, don't need it for TestAgent
+            //if (withinBounds(target) && !UserChamp(userId).IsDead) {
+            if (!UserChamp(userId).IsDead) {
+                var champion = PlayerManager.GetPeerInfo((ulong)userId).Champion;
+                var vMoves = waypoints;
+                vMoves.Insert(0, new Vector2(champion.X, champion.Y));
+                vMoves.Insert(vMoves.Count-1, target);
                 champion.UpdateMoveOrder(MoveOrder.MOVE_ORDER_MOVE);
                 champion.SetWaypoints(vMoves);
             }
@@ -879,8 +896,50 @@ namespace LeagueSandbox.GameServer
         }
 
         public int counter = -1;
+
+        /*
+        Decision Tree:
+        - Randomly assigned to a lane
+        STATE LIST
+        */
+
+        public enum GAME_STATE
+        {
+            GO_TO_LANE,
+            GOING_TO_LANE,
+            WAIT_TO_FARM
+        }
+        public GAME_STATE state = GAME_STATE.GO_TO_LANE;
+
+        // Just for bot 1 for now
         public void AIBot(uint userId, uint targetUserId, int curCounter)
         {
+            Vector2 blue_outer_mid = new Vector2(5448.02f, 6169.10f);
+            Vector2 blue_inner_mid = new Vector2(4657.66f, 4591.91f);
+            Vector2 blue_inhib_mid = new Vector2(2746.097f, 2964.8077f);
+            List<Vector2> init_waypoints = new List<Vector2>() {
+                new Vector2(1418.0f, 1686.0f),
+                new Vector2(2997.0f, 2781.0f),
+                new Vector2(4472.0f, 4727.0f),
+            };
+
+            // Where are we?
+            Vector2 current_pos = UserPos(userId);
+
+            // Set state
+            if (MathExtension.Distance(current_pos, blue_outer_mid) > 200.0f && state == GAME_STATE.GOING_TO_LANE) {
+                state = GAME_STATE.WAIT_TO_FARM;
+            }
+
+            // Act based on state
+            switch (state) {
+                case GAME_STATE.GO_TO_LANE:
+                    UserMoveWaypoints(1, new Vector2(7000.0f, 7000.0f), init_waypoints);
+                    state = GAME_STATE.GOING_TO_LANE;
+                    break;
+            }
+
+            /*
             IChampion closestEnemy = UserGetClosestEnemy(userId);
             if (closestEnemy != null)
             {
@@ -918,6 +977,7 @@ namespace LeagueSandbox.GameServer
                     UserStalk(userId, targetUserId, 1000.0f);
                 }
             }
+            */
         }
 
         struct Move_Action
@@ -1161,6 +1221,7 @@ namespace LeagueSandbox.GameServer
 
         public void Update(float diff)
         {
+            //diff *= _step_multiplier;
             GameTime += diff;
             AIUpdate(diff); // NOTE: Add AI handler
             ObjectManager.Update(diff);

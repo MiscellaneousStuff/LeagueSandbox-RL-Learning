@@ -36,7 +36,8 @@ namespace LeagueSandbox.GameServerConsole
                 parsedArgs.agent_count,
                 parsedArgs.multiplier,
                 parsedArgs.replay_path,
-                parsedArgs.redis_port);
+                parsedArgs.redis_port,
+                parsedArgs.step_multiplier);
 
 #if DEBUG
             var configGameServerSettings = GameServerConfig.LoadFromJson(LoadConfig(
@@ -147,7 +148,7 @@ namespace LeagueSandbox.GameServerConsole
         [Option("agent_count", Default = -1)]
         public int agent_count { get; set; }
 
-        [Option("multiplier", Default = 4.0f)]
+        [Option("multiplier", Default = 7.5f)]
         public float multiplier { get; set; }
 
         [Option("replay_path", Default = "")]
@@ -155,6 +156,9 @@ namespace LeagueSandbox.GameServerConsole
 
         [Option("redis_port", Default = 6379)]
         public ushort redis_port { get; set; }
+
+        [Option("step_multiplier", Default = 1.0f)]
+        public float step_multiplier { get; set; }
 
         public static ArgsOptions Parse(string[] args)
         {

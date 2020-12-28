@@ -22,14 +22,14 @@ namespace LeagueSandbox.GameServer
 
         public GameServerLauncher(string serverHost, ushort serverPort, string configJson,
             string blowfishKey, int human_count, int agent_count, float multiplier,
-            string replay_path, ushort redis_port)
+            string replay_path, ushort redis_port, float step_multiplier)
         {
             ConfigJson = configJson;
             ServerPort = serverPort;
             ServerHost = serverHost;
             _logger = LoggerProvider.GetLogger();
             game = new Game(serverHost, human_count, agent_count, multiplier,
-                            replay_path, redis_port);
+                            replay_path, redis_port, step_multiplier);
 
             _server = new Server(game, serverHost, serverPort, configJson);
 
