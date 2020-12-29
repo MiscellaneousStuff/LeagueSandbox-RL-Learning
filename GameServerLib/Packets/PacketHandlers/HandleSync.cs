@@ -3,6 +3,7 @@ using GameServerCore.Packets.Handlers;
 using GameServerCore.Packets.PacketDefinitions.Requests;
 using LeagueSandbox.GameServer.Logging;
 using log4net;
+using System;
 
 namespace LeagueSandbox.GameServer.Packets.PacketHandlers
 {
@@ -21,8 +22,6 @@ namespace LeagueSandbox.GameServer.Packets.PacketHandlers
 
         public override bool HandlePacket(int userId, SynchVersionRequest req)
         {
-            //Logging->writeLine("Client version: %s", version->version);
-
             var mapId = _game.Config.GameConfig.Map;
             _logger.Debug("Current map: " + mapId);
 
@@ -35,7 +34,7 @@ namespace LeagueSandbox.GameServer.Packets.PacketHandlers
             }
             else
             {
-                _logger.Debug("Accepted client version (" + req.Version + ") from client="+req.ClientId);
+                _logger.Debug("Accepted client version (" + req.Version + ") from client=" + req.ClientId);
             }
 
             foreach (var player in _playerManager.GetPlayers())

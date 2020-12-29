@@ -14,22 +14,24 @@ namespace PacketDefinitions420
     {
         private Host _server;
         public BlowFish Blowfish { get; private set; }
-        private uint _serverHost = Address.IPv4HostAny;
+        // private uint _serverHost = Address.IPv4HostAny;
 
         public IPacketHandlerManager PacketHandlerManager { get; private set; }
-        
 
         private IGame _game;
 
         protected const int PEER_MTU = 996;
 
 
-        public void InitServer(ushort port, Dictionary<ulong, string> blowfishKeys, IGame game, NetworkHandler<ICoreRequest> netReq, NetworkHandler<ICoreResponse> netResp)
+        public void InitServer(string host, ushort port, Dictionary<ulong, string> blowfishKeys, IGame game, NetworkHandler<ICoreRequest> netReq, NetworkHandler<ICoreResponse> netResp)
         {
             _game = game;
             _server = new Host();
-            _server.Create(new Address(_serverHost,port), 32, 32, 0, 0);
-
+            Address addr = new Address();
+            addr.Port = port;
+            // addr.SetHost("192.168.0.100"); // Laptop Ethernet IP
+            addr.SetHost(host);
+            _server.Create(addr, 32, 32, 0, 0);
             Dictionary<ulong, BlowFish> blowfishes = new Dictionary<ulong, BlowFish>();
             foreach(var rawKey in blowfishKeys)
             {

@@ -17,12 +17,14 @@ namespace LeagueSandbox.GameServer
         private Game _game;
         private Config _config;
         private ushort _serverPort { get; }
+        private string _serverHost {get; }
 
-        public Server(Game game, ushort port, string configJson)
+        public Server(Game game, string host, ushort port, string configJson)
         {
             _logger = LoggerProvider.GetLogger();
             _game = game;
             _serverPort = port;
+            _serverHost = host;
             _config = Config.LoadFromJson(game, configJson);
 
             _blowfishKeys = new Dictionary<ulong, string>();
@@ -41,7 +43,7 @@ namespace LeagueSandbox.GameServer
             _logger.Debug($"Yorick {_serverVersion}");
             _logger.Info($"Game started on port: {_serverPort}");
 
-            packetServer.InitServer(_serverPort, _blowfishKeys, _game, _game.RequestHandler, _game.ResponseHandler);
+            packetServer.InitServer(_serverHost, _serverPort, _blowfishKeys, _game, _game.RequestHandler, _game.ResponseHandler);
             _game.Initialize(_config, packetServer);
         }
 

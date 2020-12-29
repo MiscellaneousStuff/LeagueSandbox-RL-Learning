@@ -26,9 +26,18 @@ namespace LeagueSandbox.GameServerConsole
                 parsedArgs.GameInfoJson,
                 Encoding.UTF8.GetString(Resources.GameInfo));
 
+            var gameServerBlowFish = "17BLOhi6KZsTtldTsizvHg==";
             var gameServerLauncher = new GameServerLauncher(
+                parsedArgs.ServerHost,
                 parsedArgs.ServerPort,
-                parsedArgs.GameInfoJson);
+                parsedArgs.GameInfoJson,
+                gameServerBlowFish,
+                parsedArgs.human_count,
+                parsedArgs.agent_count,
+                parsedArgs.multiplier,
+                parsedArgs.replay_path,
+                parsedArgs.redis_port,
+                parsedArgs.step_multiplier);
 
 #if DEBUG
             var configGameServerSettings = GameServerConfig.LoadFromJson(LoadConfig(
@@ -114,6 +123,7 @@ namespace LeagueSandbox.GameServerConsole
 
     public class ArgsOptions
     {
+
         [Option("config", Default = "Settings/GameInfo.json")]
         public string GameInfoJsonPath { get; set; }
 
@@ -126,8 +136,29 @@ namespace LeagueSandbox.GameServerConsole
         [Option("config-gameserver-json", Default = "")]
         public string GameServerSettingsJson { get; set; }
 
-        [Option("port", Default = (ushort)5119)]
+        [Option("host", Default = "127.0.0.1")]
+        public string ServerHost { get; set; }
+
+        [Option("port", Default = (ushort) 5119)]
         public ushort ServerPort { get; set; }
+
+        [Option("human_count", Default = 1)]
+        public int human_count { get; set; }
+
+        [Option("agent_count", Default = -1)]
+        public int agent_count { get; set; }
+
+        [Option("multiplier", Default = 7.5f)]
+        public float multiplier { get; set; }
+
+        [Option("replay_path", Default = "")]
+        public string replay_path { get; set; }
+
+        [Option("redis_port", Default = 6379)]
+        public ushort redis_port { get; set; }
+
+        [Option("step_multiplier", Default = 1.0f)]
+        public float step_multiplier { get; set; }
 
         public static ArgsOptions Parse(string[] args)
         {
