@@ -1221,7 +1221,7 @@ namespace LeagueSandbox.GameServer
 
         public void Update(float diff)
         {
-            //diff *= _step_multiplier;
+            diff *= _step_multiplier;
             GameTime += diff;
             AIUpdate(diff); // NOTE: Add AI handler
             ObjectManager.Update(diff);
