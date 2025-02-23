@@ -20,7 +20,6 @@ using System.Linq;
 using System.IO;
 using System.Reflection;
 using System.Threading;
-// using System.Runtime.Serialization;
 using Timer = System.Timers.Timer;
 using GameServerCore.Packets.PacketDefinitions;
 using GameServerCore.Packets.PacketDefinitions.Requests;
@@ -655,6 +654,9 @@ namespace LeagueSandbox.GameServer
             // UserID
             public uint user_id;
 
+            // Net ID
+            public uint net_id;
+
             // Transform
             public Vector2 position;
             public float facing_angle;
@@ -717,6 +719,9 @@ namespace LeagueSandbox.GameServer
             // Us and others
             public List<Champ_Observation> champ_units;
 
+             // Projectiles in game
+            public List<Projectile_Observation> projectiles;
+
             // Available Actions
             public Champ_Actions_Available available_actions;
         }
@@ -767,6 +772,7 @@ namespace LeagueSandbox.GameServer
                     {
                         // Set user id to observer
                         champ_observation.user_id = i;
+                        champ_observation.net_id = champ.NetId;
 
                         // If we're dead, that disallows a lot of actions
                         if (champ.IsDead)
@@ -868,11 +874,72 @@ namespace LeagueSandbox.GameServer
                 observation.champ_units.Add(champ_observation);
             }
 
+            // Get all projectiles
+            observation.projectiles = new List<Projectile_Observation>();
+            var objects = ObjectManager.GetObjects();
+            foreach (var obj in objects.Values)
+            {
+                var projectile = obj as IProjectile;
+                if (projectile != null)
+                {
+                    Projectile_Observation proj_observation = new Projectile_Observation();
+                    
+                    // Position
+                    proj_observation.position = projectile.GetPosition();
+                    
+                    // [x] Team info
+                    proj_observation.my_team = Convert.ToSingle(projectile.Team == champion.Team);
+                    proj_observation.neutral = Convert.ToSingle(projectile.Team == TeamId.TEAM_NEUTRAL);
+                    
+                    // [x] Distance to observer
+                    proj_observation.dx_to_me = projectile.X - champion.X;
+                    proj_observation.dy_to_me = projectile.Y - champion.Y;
+                    proj_observation.distance_to_me = MathExtension.Distance(projectile.GetPosition(), champion.GetPosition());
+                    
+                    // Additional info
+                    proj_observation.speed = projectile.SpellData?.MissileSpeed ?? 0;
+                    proj_observation.owner_id = projectile.Owner.NetId;  // [x]
+                    proj_observation.projectile_name = projectile.OriginSpell?.SpellName ?? ""; // [x]
+                    
+                    // Collision info
+                    proj_observation.has_collided = projectile.ObjectsHit.Count > 0;
+                    proj_observation.hit_net_ids = projectile.ObjectsHit.Select(obj => obj.NetId).ToList();
+
+
+                    // Add to observation list
+                    observation.projectiles.Add(proj_observation);
+                }
+            }
+
             // Return JSON observation string
             observation.available_actions = available_actions;
             response.observation = observation;
             JObject o = (JObject) JToken.FromObject(response);
             return o.ToString();
+        }
+
+        struct Projectile_Observation
+        {
+            // Position
+            public Vector2 position;
+            
+            // Team info
+            public float my_team;
+            public float neutral;
+            
+            // Distance to observer
+            public float dx_to_me;
+            public float dy_to_me; 
+            public float distance_to_me;
+            
+            // Additional info
+            public float speed;
+            public uint owner_id;
+            public string projectile_name;
+
+            // Collision info
+            public bool has_collided;
+            public List<uint> hit_net_ids; // List of NetIds of objects this projectile has hit
         }
 
         /*
